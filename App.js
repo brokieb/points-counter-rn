@@ -1,58 +1,92 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Button, TextInput, ScrollView, Modal, Pressable } from 'react-native';
-import { useState, createContext, useMemo } from 'react';
-import MainLayout from './components/layout/mainLayout'
-import SingleTodoItem from './components/elements/cards/singleTodoItem';
-
-export const PlayersContext = createContext({
-  Players: [],
-  setPlayers: () => { },
-});
+import "react-native-gesture-handler";
+import { StyleSheet, View, TextInput, TouchableOpacity } from "react-native";
+import {
+  Button,
+  ButtonGroup,
+  withTheme,
+  Text,
+  Icon,
+} from "react-native-elements";
+import { useState, createContext, useMemo, useEffect } from "react";
+import { MainLayout } from "nativeapp/components/layout/mainLayout";
+import {
+  PlayersContext,
+  EditModeContext,
+  ActiveGameContext,
+} from "nativeapp/components/store/contextStore";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { GameScreen } from "nativeapp/components/screens/gameScreen";
+import { PlayersScreen } from "nativeapp/components/screens/playersScreen";
+import { HomeScreen } from "nativeapp/components/screens/homeScreen";
+import { PrepareGameScreen } from "nativeapp/components/screens/prepareGameScreen";
+import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
+import { faCoffee } from "@fortawesome/free-solid-svg-icons";
+import storage from "@react-native-async-storage/async-storage";
+const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [data, setData] = useState(0)
-  const [input, setInput] = useState('')
   const [players, setPlayers] = useState([]);
-  const playersData = useMemo(
-    () => ({ players, setPlayers }),
-    [players]
+  const playersData = useMemo(() => ({ players, setPlayers }), [players]);
+
+  const [editMode, setEditMode] = useState(false);
+  const editModeData = useMemo(() => ({ editMode, setEditMode }), [editMode]);
+
+  const [activeGame, setActiveGame] = useState(false);
+  const activeGameData = useMemo(
+    () => ({ activeGame, setActiveGame }),
+    [activeGame]
   );
+
+  useEffect(() => {
+    storage.getItem("@players").then((item) => {
+      const readyData = JSON.parse(item);
+      if (Array.isArray(readyData)) {
+        setPlayers(readyData);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    console.log(activeGame);
+  }, [activeGame]);
+
+  useEffect(async () => {
+    await storage.setItem("@players", JSON.stringify(players));
+  }, [players]);
 
   return (
     <PlayersContext.Provider value={playersData}>
-      <MainLayout>
-        <View style={styles.formContainer}>
-          <TextInput
-            placeholder="Dodaj gracza"
-            onChangeText={setInput}
-            value={input}
-            style={styles.formContainerInput} />
-          <View style={styles.formContainerButtonContainer}>
-            <Button title="DODAJ" onPress={() => {
-              setPlayers((last) => {
-                return [...last, { name: input, points: 0, active: false }]
-              })
-              setInput("")
-            }} />
-          </View>
-        </View>
-        {players.map((item, index) => {
-          return <Pressable key={index} onPress={() => { console.log("TO DZIAŁ!", index) }}>
-            <SingleTodoItem item={item} />
-          </Pressable>
-        })}
-        <View style={{ display: "flex", flexDirection: "row", justifyContent: "space-around" }}>
-          <View style={{ backgroundColor: "red", flex: 1 }}><Text>A</Text></View>
-          <View style={{ backgroundColor: "cyan", flex: 1 }}><Text>B</Text></View>
-          <View style={{ backgroundColor: "magenta", flex: 1 }}><Text>C</Text></View>
-        </View>
-      </MainLayout>
+      <EditModeContext.Provider value={editModeData}>
+        <ActiveGameContext.Provider value={activeGameData}>
+          <NavigationContainer>
+            <Stack.Navigator initialRouteName="Home">
+              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="Game" component={GameScreen} />
+              <Stack.Screen name="Prepare" component={PrepareGameScreen} />
+              <Stack.Screen
+                name="Players"
+                component={PlayersScreen}
+                options={{
+                  headerRight: () => (
+                    <Icon
+                      name={editMode ? "check" : "edit"}
+                      type="font-awesome"
+                      color="#f50"
+                      onPress={() =>
+                        setEditMode((prev) => {
+                          return prev ? false : true;
+                        })
+                      }
+                      containerStyle={{ margin: 10 }}
+                    />
+                  ),
+                }}
+              />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </ActiveGameContext.Provider>
+      </EditModeContext.Provider>
     </PlayersContext.Provider>
   );
 }
-
-const styles = StyleSheet.create({
-  formContainer: { display: "flex", flexDirection: "row", alignItems: "center", paddingVertical: 5, width: "100%" },
-  formContainerInput: { paddingRight: 50, borderBottomWidth: 2, borderColor: "green", flex: 1 },
-  formContainerButtonContainer: { paddingHorizontal: 5 },
-});
